@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/urfave/cli/v3"
 )
@@ -39,18 +40,30 @@ func main() {
 	}
 }
 
+type sortedSlice []struct {
+	path string
+	size int
+}
+
 func Search(ctx context.Context, cmd *cli.Command) error {
-	maxSize := int(cmd.Int("size"))
-	sortedSlice := []struct {
-		path string
-		size int
-	}{}
+	fileListSize := int(cmd.Int("size"))
+	biggestFiles := &sortedSlice{}
 
 	search := func(path string, dir fs.DirEntry, err error) error {
-		if len(sortedSlice) >= maxSize {
-			//
-			fmt.Println("foo")
+		file, fileErr := dir.Info()
+		if fileErr != nil {
+			return fileErr
 		}
+
+		if len(*biggestFiles) >= fileListSize {
+			smallestFileSize := (*biggestFiles)[len(*biggestFiles)-1].size
+			if smallestFileSize > int(file.Size()) {
+				return nil
+			}
+		}
+
+		inx, found := slices.BinarySearch(biggestFiles, file.Size())
+		slices.Insert(biggestFiles, inx, file.Size())
 		return nil
 	}
 
@@ -58,9 +71,6 @@ func Search(ctx context.Context, cmd *cli.Command) error {
 	if err := filepath.WalkDir(dirToWalk, search); err != nil {
 		log.Fatal(err)
 	}
-	return nil
-}
-
-func binarySearch() error {
+	fmt.Println(biggestFiles)
 	return nil
 }
